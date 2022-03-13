@@ -40,6 +40,31 @@ val taxiTripSplits = taxiTripDF.randomSplit(Array(0.66, 0.34), seed=0)
 val trainTaxiTripDF = taxiTripSplits(0)
 val testTaxiTripDF = taxiTripSplits(1)
 
-taxiTrip.unpersist()
 
-//holahola
+/**** LIMPIEZA ****/
+// No hay valores nulos, pero por si acaso eliminamos valores nulos
+var cleanTrainTaxiTripDF = trainTaxiTripDF.na.drop()
+var cleanTestTaxiTripDF = testTaxiTripDF.na.drop()
+val ntaie = testTaxiTripDF.count() - cleanTestTaxiTripDF.count()
+
+// Outliers - Eliminar datos del dia 23 de enero
+def filterDates(df : DataFrame) : DataFrame = {
+  df.filter($"pickup_datetime" < "2016-01-23" || $"pickup_datetime" > "2016-01-24")
+    .filter($"dropoff_datetime" < "2016-01-23" || $"dropoff_datetime" > "2016-01-24")
+    .filter($"dropoff_datetime" < "2016-07-01")
+}
+
+var ntoe = cleanTestTaxiTripDF.count()
+cleanTrainTaxiTripDF = filterDates(cleanTrainTaxiTripDF)
+cleanTestTaxiTripDF = filterDates(cleanTestTaxiTripDF)
+ntoe = ntoe - cleanTestTaxiTripDF.count()
+
+val tasaNoClasificados = (ntaie + ntoe).toDouble / testTaxiTripDF.count().toDouble
+
+
+/**** TRANSFORMACION ****/
+
+
+
+//taxiTrip.unpersist()
+
