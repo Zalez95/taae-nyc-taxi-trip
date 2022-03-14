@@ -69,19 +69,23 @@ val tasaNoClasificados = (ntaie + ntoe).toDouble / testTaxiTripDF.count().toDoub
 
 
 /**** TRANSFORMACION ****/
+// Transformar trip_duration a la clase short/long
+val medianTripDuration = hotTrainTaxiDF.stat.approxQuantile("trip_duration", Array(0.5), 0.0001)(0)
+val classTrainTaxiDF = cleanTrainTaxiTripDF.withColumn("trip_duration", when($"trip_duration" < medianTripDuration.toInt, "short").otherwise("long"))
+val classTestTaxiDF = cleanTestTaxiTripDF.withColumn("trip_duration", when($"trip_duration" < medianTripDuration.toInt, "short").otherwise("long"))
+
 // Atributos categoricos a Double, y eliminacion de id
-var inputColumns = cleanTrainTaxiTripDF.columns.filter(_ == "store_and_fwd_flag").toArray
+var inputColumns = classTrainTaxiDF.columns.filter(_ == "store_and_fwd_flag").toArray
 var outputColumns = inputColumns.map(_ + "_num").toArray
 val siColumns= new StringIndexer().setInputCols(inputColumns).setOutputCols(outputColumns).setStringOrderType("alphabetDesc")
 
-val trainTaxiSimColumns = siColumns.fit(cleanTrainTaxiTripDF)
-val numericTrainTaxiDF = (trainTaxiSimColumns.transform(cleanTrainTaxiTripDF)
+val trainTaxiSimColumns = siColumns.fit(classTrainTaxiDF)
+val numericTrainTaxiDF = (trainTaxiSimColumns.transform(classTrainTaxiDF)
   .drop(inputColumns:_*)
   .drop("id")
 )
 
-val testTaxiSimColumns = siColumns.fit(cleanTestTaxiTripDF)
-val numericTestTaxiDF = (testTaxiSimColumns.transform(cleanTestTaxiTripDF)
+val numericTestTaxiDF = (trainTaxiSimColumns.transform(classTestTaxiDF)
   .drop(inputColumns:_*)
   .drop("id")
 )
@@ -95,11 +99,9 @@ val hotColumns = new OneHotEncoder().setInputCols(inputColumns).setOutputCols(ou
 val trainTaxiHotmColumns = hotColumns.fit(numericTrainTaxiDF)
 val hotTrainTaxiDF = trainTaxiHotmColumns.transform(numericTrainTaxiDF).drop(inputColumns:_*)
 
-val testTaxiHotmColumns = hotColumns.fit(numericTestTaxiDF)
-val hotTestTaxiDF = testTaxiHotmColumns.transform(numericTestTaxiDF).drop(inputColumns:_*)
+val hotTestTaxiDF = trainTaxiHotmColumns.transform(numericTestTaxiDF).drop(inputColumns:_*)
 
 // Se necesita de entrada labelCol y featuresCol
-
 
 
 /**** MODELO ****/
