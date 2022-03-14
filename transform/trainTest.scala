@@ -5,6 +5,7 @@ import spark.implicits._
 import java.text.SimpleDateFormat
 import java.nio.file.{Paths, Files}
 import java.nio.charset.StandardCharsets
+import org.apache.spark.classification.DecisionTreeClasifier
 
 var PATH = "./"
 var FILE = "train.csv"
@@ -63,8 +64,25 @@ val tasaNoClasificados = (ntaie + ntoe).toDouble / testTaxiTripDF.count().toDoub
 
 
 /**** TRANSFORMACION ****/
+//Se necesita de entrada labelCol y featuresCol
 
 
+
+/**** Parametros del Algoritmo ****/
+
+//crear la instancia del modelo
+val DTtrip=new DecisionTreeClassifier()
+
+//Parametros del modelo
+
+val impureza = "gini" //Se selecciona gini por tener atributos numericos
+val maxProf = 3
+val maxBins = 5 //es el default, mirar si va bien, porque es critico
+
+//fijar parametros del modelo
+DTtrip.setImpurity(impureza)
+DTtrip.setMaxDepth(maxProf)
+DTtrip.setMaxBins(maxBins)
 
 //taxiTrip.unpersist()
 
