@@ -5,10 +5,15 @@ import spark.implicits._
 import java.text.SimpleDateFormat
 import java.nio.file.{Paths, Files}
 import java.nio.charset.StandardCharsets
-import org.apache.spark.classification.DecisionTreeClasifier
+import org.apache.spark.ml.feature.StringIndexer
+import org.apache.spark.ml.feature.StringIndexerModel
+import org.apache.spark.ml.feature.OneHotEncoder
+import org.apache.spark.ml.feature.OneHotEncoderModel
+import org.apache.spark.ml.classification.DecisionTreeClassifier
 
 var PATH = "./"
 var FILE = "train.csv"
+
 
 /*****************************************************************************/
 var taxiTripSchema = StructType(Array(
@@ -64,11 +69,40 @@ val tasaNoClasificados = (ntaie + ntoe).toDouble / testTaxiTripDF.count().toDoub
 
 
 /**** TRANSFORMACION ****/
-//Se necesita de entrada labelCol y featuresCol
+// Atributos categoricos a Double, y eliminacion de id
+var inputColumns = cleanTrainTaxiTripDF.columns.filter(_ == "store_and_fwd_flag").toArray
+var outputColumns = inputColumns.map(_ + "_num").toArray
+val siColumns= new StringIndexer().setInputCols(inputColumns).setOutputCols(outputColumns).setStringOrderType("alphabetDesc")
+
+val trainTaxiSimColumns = siColumns.fit(cleanTrainTaxiTripDF)
+val numericTrainTaxiDF = (trainTaxiSimColumns.transform(cleanTrainTaxiTripDF)
+  .drop(inputColumns:_*)
+  .drop("id")
+)
+
+val testTaxiSimColumns = siColumns.fit(cleanTestTaxiTripDF)
+val numericTestTaxiDF = (testTaxiSimColumns.transform(cleanTestTaxiTripDF)
+  .drop(inputColumns:_*)
+  .drop("id")
+)
+
+// Transformacion 1 de k
+val tmpCols = inputColumns
+inputColumns = outputColumns
+outputColumns = tmpCols.map(_ + "_hot")
+val hotColumns = new OneHotEncoder().setInputCols(inputColumns).setOutputCols(outputColumns)
+
+val trainTaxiHotmColumns = hotColumns.fit(numericTrainTaxiDF)
+val hotTrainTaxiDF = trainTaxiHotmColumns.transform(numericTrainTaxiDF).drop(inputColumns:_*)
+
+val testTaxiHotmColumns = hotColumns.fit(numericTestTaxiDF)
+val hotTestTaxiDF = testTaxiHotmColumns.transform(numericTestTaxiDF).drop(inputColumns:_*)
+
+// Se necesita de entrada labelCol y featuresCol
 
 
 
-/**** Parametros del Algoritmo ****/
+/**** MODELO ****/
 
 //crear la instancia del modelo
 val DTtrip=new DecisionTreeClassifier()
