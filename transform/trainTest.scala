@@ -117,7 +117,7 @@ val hotTestTaxiDF = trainTaxiHotmColumns.transform(numericTestTaxiDF).drop(input
 /* CREACION DE LAS COLUMNAS fEATURES Y LABEL */
 
 //definimos la columna features con todos los atributos menos la clase
-val va = new VectorAssembler().setOutputCol("features").setInputCols(hotTrainTaxiDF).columns.diff(Array("trip_duration")))
+val va = new VectorAssembler().setOutputCol("features").setInputCols(hotTrainTaxiDF.columns.diff(Array("trip_duration")))
 
 //creamos el DF con columnas features y clase
 val tripTrainFeatClaDF = va.transform(hotTrainTaxiDF).select("features","trip_duration")
