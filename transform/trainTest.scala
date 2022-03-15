@@ -11,6 +11,7 @@ import org.apache.spark.ml.feature.OneHotEncoder
 import org.apache.spark.ml.feature.OneHotEncoderModel
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.classification.DecisionTreeClassifier
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
 
 var PATH = "./"
 var FILE = "train.csv"
@@ -141,5 +142,21 @@ dtTaxiTrip.setImpurity(impureza)
 dtTaxiTrip.setMaxDepth(maxProf)
 dtTaxiTrip.setMaxBins(maxBins)
 
-//dtTaxiTrip.unpersist()
+val trainTaxiFeatLabMd = dtTaxiTrip.fit(trainTaxiFeatLabDF)
+trainTaxiFeatLabMd.toDebugString
+
+// Predecimos la clase de los ejemplos de prueba
+val predictionsAndLabelsDF = trainTaxiFeatLabMd.transform(testTaxiFeatLabDF).select("prediction", "label")
+
+// Calculamos estadisticas de la prediccion
+val metrics = new MulticlassClassificationEvaluator()
+metrics.setMetricName("accuracy")
+
+val acierto = metrics.evaluate(predictionsAndLabelsDF)
+val error = 1.0 - acierto
+
+println(f"Tasa de error = $error%1.3f")
+
+
+dtTaxiTrip.unpersist()
 
