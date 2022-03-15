@@ -73,7 +73,6 @@ val tasaNoClasificados = (ntaie + ntoe).toDouble / testTaxiTripDF.count().toDoub
 def convertDates(df: DataFrame, column: String) : DataFrame = {
   var df2 = df
   var Array(name, _*) = column.split("_")
-     
      df2 = df2.withColumn(name+"_hour", date_format(col(column), "H"))
      df2 = df2.withColumn(name+"_minute", date_format(col(column), "m"))
      df2 = df2.withColumn(name+"_second", date_format(col(column), "s"))
