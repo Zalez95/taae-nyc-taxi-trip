@@ -114,7 +114,21 @@ val hotTrainTaxiDF = trainTaxiHotmColumns.transform(numericTrainTaxiDF).drop(inp
 
 val hotTestTaxiDF = trainTaxiHotmColumns.transform(numericTestTaxiDF).drop(inputColumns:_*)
 
-// Se necesita de entrada labelCol y featuresCol
+/* CREACION DE LAS COLUMNAS fEATURES Y LABEL */
+
+//definimos la columna features con todos los atributos menos la clase
+val va = new VectorAssembler().setOutputCol("features").setInputCols(hotTrainTaxiDF).columns.diff(Array("trip_duration")))
+
+//creamos el DF con columnas features y clase
+val tripTrainFeatClaDF = va.transform(hotTrainTaxiDF).select("features","trip_duration")
+
+//transformamos la etiqueta de clasde a entero y se renombra a "label"
+val indiceClase = new StringIndexer().setInputCol("trip_duration").setOutputCol("label").setStringOrderType("alphabetDesc")
+
+//creamos el DF tripTrainFeatLabDF con las columnas features y label
+
+val tripTrainFeatLabDF = indiceClase.fit(tripTrainFeatClaDF).transform(tripTrainFeatClaDF).drop("trip_duration")
+tripTrainFeatLabDF.show()
 
 
 /**** MODELO ****/
