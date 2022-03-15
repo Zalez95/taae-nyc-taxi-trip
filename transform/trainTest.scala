@@ -71,17 +71,15 @@ val tasaNoClasificados = (ntaie + ntoe).toDouble / testTaxiTripDF.count().toDoub
 /**** TRANSFORMACION ****/
 //Transformar pickup_datetime y dropoff_datetime a pickup_time y dropoff_time, de tipo Double
 def convertDates(df: DataFrame, column: String) : DataFrame = {
-  var df2 = df
   var Array(name, _*) = column.split("_")
-     df2 = df2.withColumn(name+"_hour", date_format(col(column), "H"))
-     df2 = df2.withColumn(name+"_minute", date_format(col(column), "m"))
-     df2 = df2.withColumn(name+"_second", date_format(col(column), "s"))
-     df2 = df2.withColumn(name+"_time", col(name+"_hour")*3600 + col(name+"_minute")*60 + col(name+"_second"))
-     df2 = df2.drop(name+"_hour")
-     df2 = df2.drop(name+"_minute")
-     df2 = df2.drop(name+"_second")
-     df2 = df2.drop(column)
-     return df2
+  return df.withColumn(name+"_hour", date_format(col(column), "H"))
+  	   .withColumn(name+"_minute", date_format(col(column), "m"))
+           .withColumn(name+"_second", date_format(col(column), "s"))
+           .withColumn(name+"_time", col(name+"_hour")*3600 + col(name+"_minute")*60 + col(name+"_second"))
+           .drop(name+"_hour")
+           .drop(name+"_minute")
+           .drop(name+"_second")
+           .drop(column)
 }
 
 //Transformar pickup_datetime y dropoff_datetime a pickup_time y dropoff_time, de tipo Double
