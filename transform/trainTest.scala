@@ -69,40 +69,36 @@ val tasaNoClasificados = (ntaie + ntoe).toDouble / testTaxiTripDF.count().toDoub
 
 
 /**** TRANSFORMACION ****/
-//Transformar pickup_datetime y dropoff_datetime a pickup_time y dropoff_time, de tipo Double
 def convertDates(df: DataFrame, column: String) : DataFrame = {
-  var Array(name, _*) = column.split("_")
-  return df.withColumn(name+"_hour", date_format(col(column), "H"))
-  	   .withColumn(name+"_minute", date_format(col(column), "m"))
-           .withColumn(name+"_second", date_format(col(column), "s"))
-           .withColumn(name+"_time", col(name+"_hour")*3600 + col(name+"_minute")*60 + col(name+"_second"))
-           .drop(name+"_hour")
-           .drop(name+"_minute")
-           .drop(name+"_second")
-           .drop(column)
+  df.withColumn(column + "_time", date_format(col(column), "H")*3600 + date_format(col(column), "m")*60 + date_format(col(column), "s"))
+    .withColumn(column + "_weekday", dayofweek(col(column)).cast(StringType))
+    .drop(column)
 }
 
-//Transformar pickup_datetime y dropoff_datetime a pickup_time y dropoff_time, de tipo Double
-taxiTripDF = convertDates(taxiTripDF, "pickup_datetime")
-taxiTripDF = convertDates(taxiTripDF, "dropoff_datetime")
-
 // Transformar trip_duration a la clase short/long
-val medianTripDuration = hotTrainTaxiDF.stat.approxQuantile("trip_duration", Array(0.5), 0.0001)(0)
+val medianTripDuration = cleanTrainTaxiTripDF.stat.approxQuantile("trip_duration", Array(0.5), 0.0001)(0)
 val classTrainTaxiDF = cleanTrainTaxiTripDF.withColumn("trip_duration", when($"trip_duration" < medianTripDuration.toInt, "short").otherwise("long"))
 val classTestTaxiDF = cleanTestTaxiTripDF.withColumn("trip_duration", when($"trip_duration" < medianTripDuration.toInt, "short").otherwise("long"))
 
+// Transformar pickup_datetime y dropoff_datetime a pickup_time, pickup_weekday, dropoff_time y dropoff_weekday, de tipo Double y String
+var timeTrainTaxiDF = convertDates(classTrainTaxiDF, "pickup_datetime")
+timeTrainTaxiDF = convertDates(timeTrainTaxiDF, "dropoff_datetime")
+
+var timeTestTaxiDF = convertDates(classTestTaxiDF, "pickup_datetime")
+timeTestTaxiDF = convertDates(timeTestTaxiDF, "dropoff_datetime")
+
 // Atributos categoricos a Double, y eliminacion de id
-var inputColumns = classTrainTaxiDF.columns.filter(_ == "store_and_fwd_flag").toArray
+var inputColumns = Array("store_and_fwd_flag", "pickup_datetime_weekday", "dropoff_datetime_weekday")
 var outputColumns = inputColumns.map(_ + "_num").toArray
 val siColumns= new StringIndexer().setInputCols(inputColumns).setOutputCols(outputColumns).setStringOrderType("alphabetDesc")
 
-val trainTaxiSimColumns = siColumns.fit(classTrainTaxiDF)
-val numericTrainTaxiDF = (trainTaxiSimColumns.transform(classTrainTaxiDF)
+val trainTaxiSimColumns = siColumns.fit(timeTrainTaxiDF)
+val numericTrainTaxiDF = (trainTaxiSimColumns.transform(timeTrainTaxiDF)
   .drop(inputColumns:_*)
   .drop("id")
 )
 
-val numericTestTaxiDF = (trainTaxiSimColumns.transform(classTestTaxiDF)
+val numericTestTaxiDF = (trainTaxiSimColumns.transform(timeTestTaxiDF)
   .drop(inputColumns:_*)
   .drop("id")
 )
