@@ -9,6 +9,7 @@ import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.feature.StringIndexerModel
 import org.apache.spark.ml.feature.OneHotEncoder
 import org.apache.spark.ml.feature.OneHotEncoderModel
+import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.classification.DecisionTreeClassifier
 
 var PATH = "./"
@@ -114,38 +115,31 @@ val hotTrainTaxiDF = trainTaxiHotmColumns.transform(numericTrainTaxiDF).drop(inp
 
 val hotTestTaxiDF = trainTaxiHotmColumns.transform(numericTestTaxiDF).drop(inputColumns:_*)
 
-/* CREACION DE LAS COLUMNAS fEATURES Y LABEL */
+// Creacion de las columnas features
+inputColumns = hotTrainTaxiDF.columns.diff(Array("trip_duration"))
+val va = new VectorAssembler().setOutputCol("features").setInputCols(inputColumns)
 
-//definimos la columna features con todos los atributos menos la clase
-val va = new VectorAssembler().setOutputCol("features").setInputCols(hotTrainTaxiDF.columns.diff(Array("trip_duration")))
+val trainTaxiFeatClaDF = va.transform(hotTrainTaxiDF).select("features", "trip_duration")
+val testTaxiFeatClaDF = va.transform(hotTestTaxiDF).select("features", "trip_duration")
 
-//creamos el DF con columnas features y clase
-val tripTrainFeatClaDF = va.transform(hotTrainTaxiDF).select("features","trip_duration")
-
-//transformamos la etiqueta de clasde a entero y se renombra a "label"
+// Creacion de la columna label
 val indiceClase = new StringIndexer().setInputCol("trip_duration").setOutputCol("label").setStringOrderType("alphabetDesc")
-
-//creamos el DF tripTrainFeatLabDF con las columnas features y label
-
-val tripTrainFeatLabDF = indiceClase.fit(tripTrainFeatClaDF).transform(tripTrainFeatClaDF).drop("trip_duration")
-tripTrainFeatLabDF.show()
+val trainTaxiFeatLabDF = indiceClase.fit(trainTaxiFeatClaDF).transform(trainTaxiFeatClaDF).drop("trip_duration")
+val testTaxiFeatLabDF = indiceClase.fit(testTaxiFeatClaDF).transform(testTaxiFeatClaDF).drop("trip_duration")
 
 
 /**** MODELO ****/
+// crear la instancia del modelo
+val dtTaxiTrip = new DecisionTreeClassifier()
 
-//crear la instancia del modelo
-val DTtrip=new DecisionTreeClassifier()
-
-//Parametros del modelo
-
-val impureza = "gini" //Se selecciona gini por tener atributos numericos
+// Parametros del modelo
+val impureza = "gini" // Se selecciona gini por tener atributos numericos
 val maxProf = 3
-val maxBins = 5 //es el default, mirar si va bien, porque es critico
+val maxBins = 5       // es el default, mirar si va bien, porque es critico
 
-//fijar parametros del modelo
-DTtrip.setImpurity(impureza)
-DTtrip.setMaxDepth(maxProf)
-DTtrip.setMaxBins(maxBins)
+dtTaxiTrip.setImpurity(impureza)
+dtTaxiTrip.setMaxDepth(maxProf)
+dtTaxiTrip.setMaxBins(maxBins)
 
-//taxiTrip.unpersist()
+//dtTaxiTrip.unpersist()
 
