@@ -166,6 +166,7 @@ def test(df : DataFrame) = {
   testTree("gini", 8, 5)
   testTree("gini", 9, 5)
   testTree("gini", 9, 32)
+  testTree("gini", 9, 50)
 
   dfS1.unpersist()
   dfS2.unpersist()
@@ -176,7 +177,7 @@ test(trainTaxiFeatLabDF)
 // Modelo final
 val dtTaxiTrip = new DecisionTreeClassifier()
 dtTaxiTrip.setImpurity("gini")
-dtTaxiTrip.setMaxDepth(3)
+dtTaxiTrip.setMaxDepth(9)
 dtTaxiTrip.setMaxBins(5)
 
 val trainTaxiFeatLabMd = dtTaxiTrip.fit(trainTaxiFeatLabDF)
@@ -186,6 +187,9 @@ var error = calculoError(predictionsAndLabelsDF)
 trainTaxiFeatLabMd.toDebugString
 println(f"Tasa de error = $error%1.3f")
 
+//guardado del modelo final
+
+dtTaxiTrip.write.overwrite().save(PATH + "dtTaxiTrip")
 
 // Limpiar
 testTaxiFeatLabDF.unpersist()
