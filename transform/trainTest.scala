@@ -148,6 +148,20 @@ trainTaxiFeatLabMd.toDebugString
 // Predecimos la clase de los ejemplos de prueba
 val predictionsAndLabelsDF = trainTaxiFeatLabMd.transform(testTaxiFeatLabDF).select("prediction", "label")
 
+//Utilizando nuestra propia métrica:
+def nErrores(df: DataFrame) : Double = {
+   df.filter(!(col("prediction").contains(col("label")))).count()
+}
+
+def calculoError(df: DataFrame) : Double = {
+   nErrores(df) / df.count()
+}
+
+val error = calculoError(predictionsAndLabelsDF)
+
+println(f"Tasa de error = $error%1.3f")
+
+/*
 // Calculamos estadisticas de la prediccion
 val metrics = new MulticlassClassificationEvaluator()
 metrics.setMetricName("accuracy")
@@ -156,7 +170,7 @@ val acierto = metrics.evaluate(predictionsAndLabelsDF)
 val error = 1.0 - acierto
 
 println(f"Tasa de error = $error%1.3f")
-
+*/
 
 dtTaxiTrip.unpersist()
 
