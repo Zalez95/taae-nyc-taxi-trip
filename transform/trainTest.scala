@@ -11,7 +11,6 @@ import org.apache.spark.ml.feature.OneHotEncoder
 import org.apache.spark.ml.feature.OneHotEncoderModel
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.classification.DecisionTreeClassifier
-import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
 
 var PATH = "./"
 var FILE = "train.csv"
@@ -125,52 +124,71 @@ val testTaxiFeatClaDF = va.transform(hotTestTaxiDF).select("features", "trip_dur
 
 // Creacion de la columna label
 val indiceClase = new StringIndexer().setInputCol("trip_duration").setOutputCol("label").setStringOrderType("alphabetDesc")
-val trainTaxiFeatLabDF = indiceClase.fit(trainTaxiFeatClaDF).transform(trainTaxiFeatClaDF).drop("trip_duration")
-val testTaxiFeatLabDF = indiceClase.fit(testTaxiFeatClaDF).transform(testTaxiFeatClaDF).drop("trip_duration")
+val trainTaxiFeatLabDF = indiceClase.fit(trainTaxiFeatClaDF).transform(trainTaxiFeatClaDF).drop("trip_duration").persist
+val testTaxiFeatLabDF = indiceClase.fit(testTaxiFeatClaDF).transform(testTaxiFeatClaDF).drop("trip_duration").persist
 
 
 /**** MODELO ****/
-// crear la instancia del modelo
-val dtTaxiTrip = new DecisionTreeClassifier()
-
-// Parametros del modelo
-val impureza = "gini" // Se selecciona gini por tener atributos numericos
-val maxProf = 3
-val maxBins = 5       // es el default, mirar si va bien, porque es critico
-
-dtTaxiTrip.setImpurity(impureza)
-dtTaxiTrip.setMaxDepth(maxProf)
-dtTaxiTrip.setMaxBins(maxBins)
-
-val trainTaxiFeatLabMd = dtTaxiTrip.fit(trainTaxiFeatLabDF)
-trainTaxiFeatLabMd.toDebugString
-
-// Predecimos la clase de los ejemplos de prueba
-val predictionsAndLabelsDF = trainTaxiFeatLabMd.transform(testTaxiFeatLabDF).select("prediction", "label")
-
-//Utilizando nuestra propia métrica:
+// Calculo de error
 def nErrores(df: DataFrame) : Double = {
-   df.filter(!(col("prediction").contains(col("label")))).count()
+  df.filter(!(col("prediction").contains(col("label")))).count()
 }
 
 def calculoError(df: DataFrame) : Double = {
-   nErrores(df) / df.count()
+  nErrores(df) / df.count()
 }
 
-val error = calculoError(predictionsAndLabelsDF)
+// Probamos distintos modelos empleando el conjunto de entrenamiento en proporcion 2/3 y 1/3
+def test(df : DataFrame) = {
+  val dfSplits = df.randomSplit(Array(0.66, 0.34), seed=0)
+  val dfS1 = dfSplits(0).persist
+  val dfS2 = dfSplits(1).persist
 
+  def testTree(impureza : String, maxProf : Integer, maxBins : Integer) = {
+    val dtc = new DecisionTreeClassifier()
+    dtc.setImpurity(impureza)
+    dtc.setMaxDepth(maxProf)
+    dtc.setMaxBins(maxBins)
+
+    val dfS1Md = dtc.fit(dfS1)
+    val predictionsAndLabelsDF = dfS1Md.transform(dfS2).select("prediction", "label")
+     
+    val error = calculoError(predictionsAndLabelsDF)
+    printf("testTree(\"%s\", %d, %d) = %f\n", impureza, maxProf, maxBins, error)
+  }
+
+  testTree("gini", 3, 10)
+  testTree("gini", 3, 5)
+  testTree("gini", 4, 5)
+  testTree("gini", 5, 5)
+  testTree("gini", 6, 5)
+  testTree("gini", 7, 5)
+  testTree("gini", 8, 5)
+  testTree("gini", 9, 5)
+  testTree("gini", 9, 32)
+
+  dfS1.unpersist()
+  dfS2.unpersist()
+}
+
+test(trainTaxiFeatLabDF)
+
+// Modelo final
+val dtTaxiTrip = new DecisionTreeClassifier()
+dtTaxiTrip.setImpurity("gini")
+dtTaxiTrip.setMaxDepth(3)
+dtTaxiTrip.setMaxBins(5)
+
+val trainTaxiFeatLabMd = dtTaxiTrip.fit(trainTaxiFeatLabDF)
+val predictionsAndLabelsDF = trainTaxiFeatLabMd.transform(testTaxiFeatLabDF).select("prediction", "label")
+
+var error = calculoError(predictionsAndLabelsDF)
+trainTaxiFeatLabMd.toDebugString
 println(f"Tasa de error = $error%1.3f")
 
-/*
-// Calculamos estadisticas de la prediccion
-val metrics = new MulticlassClassificationEvaluator()
-metrics.setMetricName("accuracy")
 
-val acierto = metrics.evaluate(predictionsAndLabelsDF)
-val error = 1.0 - acierto
-
-println(f"Tasa de error = $error%1.3f")
-*/
-
-dtTaxiTrip.unpersist()
+// Limpiar
+testTaxiFeatLabDF.unpersist()
+trainTaxiFeatLabDF.unpersist()
+taxiTripDF.unpersist()
 
