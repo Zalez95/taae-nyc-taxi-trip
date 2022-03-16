@@ -187,9 +187,8 @@ var error = calculoError(predictionsAndLabelsDF)
 trainTaxiFeatLabMd.toDebugString
 println(f"Tasa de error = $error%1.3f")
 
-//guardado del modelo final
-
-dtTaxiTrip.write.overwrite().save(PATH + "dtTaxiTrip")
+// Guardado del modelo final
+trainTaxiFeatLabMd.write.overwrite().save(PATH + "/modelo")
 
 // Limpiar
 testTaxiFeatLabDF.unpersist()
