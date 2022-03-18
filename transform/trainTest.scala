@@ -67,6 +67,7 @@ cleanTestTaxiTripDF = filterDates(cleanTestTaxiTripDF)
 ntoe = ntoe - cleanTestTaxiTripDF.count()
 
 val tasaNoClasificados = (ntaie + ntoe).toDouble / testTaxiTripDF.count().toDouble
+printf("Tasa de no clasificados: %f\n", tasaNoClasificados)
 
 
 /**** TRANSFORMACION ****/
@@ -78,6 +79,8 @@ def convertDates(df: DataFrame, column: String) : DataFrame = {
 
 // Transformar trip_duration a la clase short/long
 val medianTripDuration = cleanTrainTaxiTripDF.stat.approxQuantile("trip_duration", Array(0.5), 0.0001)(0)
+printf("Mediana: %f\n", medianTripDuration)
+
 val classTrainTaxiDF = cleanTrainTaxiTripDF.withColumn("trip_duration", when($"trip_duration" < medianTripDuration.toInt, "short").otherwise("long"))
 val classTestTaxiDF = cleanTestTaxiTripDF.withColumn("trip_duration", when($"trip_duration" < medianTripDuration.toInt, "short").otherwise("long"))
 
@@ -185,7 +188,7 @@ val predictionsAndLabelsDF = trainTaxiFeatLabMd.transform(testTaxiFeatLabDF).sel
 
 var error = calculoError(predictionsAndLabelsDF)
 trainTaxiFeatLabMd.toDebugString
-println(f"Tasa de error = $error%1.3f")
+printf("Tasa de error = %f\n", error)
 
 // Guardado del modelo final
 trainTaxiFeatLabMd.write.overwrite().save(PATH + "/modelo")
