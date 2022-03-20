@@ -14,6 +14,7 @@ import org.apache.spark.ml.classification.DecisionTreeClassifier
 import org.apache.spark.ml.classification.DecisionTreeClassificationModel
 
 var PATH = "./"
+var PATH_MODELO = "./"
 var FILE = "train.csv"
 
 
@@ -117,7 +118,7 @@ def calculoError(df: DataFrame) : Double = {
 }
 
 // Cargar el modelo
-var taxiFeatLabMd = DecisionTreeClassificationModel.load(PATH + "/modelo")
+var taxiFeatLabMd = DecisionTreeClassificationModel.load(PATH_MODELO + "modelo")
 
 // Probamos el modelo con los valores actuales
 val predictionsAndLabelsDF = taxiFeatLabMd.transform(taxiFeatLabDF).select("prediction", "label")

@@ -13,6 +13,7 @@ import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.classification.DecisionTreeClassifier
 
 var PATH = "./"
+var PATH_MODELO = "./"
 var FILE = "train.csv"
 
 
@@ -191,7 +192,7 @@ trainTaxiFeatLabMd.toDebugString
 printf("Tasa de error = %f\n", error)
 
 // Guardado del modelo final
-trainTaxiFeatLabMd.write.overwrite().save(PATH + "/modelo")
+trainTaxiFeatLabMd.write.overwrite().save(PATH_MODELO + "modelo")
 
 // Limpiar
 testTaxiFeatLabDF.unpersist()
