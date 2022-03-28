@@ -1,7 +1,6 @@
-:load loadCSV.scala
-:load dfCleanTransformTT.scala
+:load common.scala
 
-import org.apache.spark.ml.classification.DecisionTreeClassifier
+import org.apache.spark.ml.classification.NaiveBayes
 
 var PATH = "./"
 var PATH_MODELO = "./"
@@ -9,83 +8,92 @@ var FILE = "train.csv"
 
 
 /*****************************************************************************/
-/** Guardamos el CSV en un DataFrame */
+// Guardamos el CSV en un DataFrame
 var taxiTripDF = loadCSV(PATH + FILE).persist
 
 
-/* Realizamos una partición aleatoria de los datos */
-/* 66% para entrenamiento, 34% para prueba */
-/* Fijamos seedpara usar la misma partición en distintos ejemplos*/
+// Realizamos una partición aleatoria de los datos
+// 66% para entrenamiento, 34% para prueba
+// Fijamos seedpara usar la misma partición en distintos ejemplos
 val taxiTripSplits = taxiTripDF.randomSplit(Array(0.66, 0.34), seed=0)
 val trainTaxiTripDF = taxiTripSplits(0)
 val testTaxiTripDF = taxiTripSplits(1)
 
 
-// Limpieza y transformacion
-val ttCleanDFArray = cleanDF(trainTaxiTripDF, testTaxiTripDF)
-val ttTransformDFArray = transformDF(ttCleanDFArray(0), ttCleanDFArray(1))
-val trainTaxiFeatLabDF = ttTransformDFArray(0).persist
-val testTaxiFeatLabDF = ttTransformDFArray(1).persist
+/**** LIMPIEZA ****/
+val ttCleanDFArray = cleanTTDF(trainTaxiTripDF, testTaxiTripDF)
+
+
+/**** TRANSFORMACION ****/
+// Transformar trip_duration a la clase short/long
+val shortLongThreshold = 1200
+val classTrainTaxiDF = ttCleanDFArray(0).withColumn("trip_duration", when($"trip_duration" < shortLongThreshold.toInt, "short").otherwise("long"))
+val classTestTaxiDF = ttCleanDFArray(1).withColumn("trip_duration", when($"trip_duration" < shortLongThreshold.toInt, "short").otherwise("long"))
+
+// Transformar pickup_datetime y dropoff_datetime a pickup_time, pickup_weekday, dropoff_time y dropoff_weekday, de tipo Double y String
+var timeTrainTaxiDF = convertDates(classTrainTaxiDF, "pickup_datetime")
+timeTrainTaxiDF = convertDates(timeTrainTaxiDF, "dropoff_datetime")
+
+var timeTestTaxiDF = convertDates(classTestTaxiDF, "pickup_datetime")
+timeTestTaxiDF = convertDates(timeTestTaxiDF, "dropoff_datetime")
+
+// Longitud y latitud positivas
+val longLatTrainTaxiDF = longLatPositive(timeTrainTaxiDF)
+val longLatTestTaxiDF = longLatPositive(timeTestTaxiDF)
+
+// Atributos categoricos a Double, y eliminacion de id
+var inputColumns = Array("store_and_fwd_flag", "pickup_datetime_weekday", "dropoff_datetime_weekday")
+var outputColumns = inputColumns.map(_ + "_num").toArray
+val siColumns= new StringIndexer().setInputCols(inputColumns).setOutputCols(outputColumns).setStringOrderType("alphabetDesc")
+
+val trainTaxiSimColumns = siColumns.fit(longLatTrainTaxiDF)
+val numericTrainTaxiDF = (trainTaxiSimColumns.transform(longLatTrainTaxiDF)
+  .drop(inputColumns:_*)
+  .drop("id")
+)
+
+val numericTestTaxiDF = (trainTaxiSimColumns.transform(longLatTestTaxiDF)
+  .drop(inputColumns:_*)
+  .drop("id")
+)
+
+// Transformacion 1 de k
+val tmpCols = inputColumns
+inputColumns = outputColumns
+outputColumns = tmpCols.map(_ + "_hot")
+val hotColumns = new OneHotEncoder().setInputCols(inputColumns).setOutputCols(outputColumns)
+
+val trainTaxiHotmColumns = hotColumns.fit(numericTrainTaxiDF)
+val hotTrainTaxiDF = trainTaxiHotmColumns.transform(numericTrainTaxiDF).drop(inputColumns:_*)
+
+val hotTestTaxiDF = trainTaxiHotmColumns.transform(numericTestTaxiDF).drop(inputColumns:_*)
+
+// Creacion de las columnas features
+inputColumns = hotTrainTaxiDF.columns.diff(Array("trip_duration"))
+val va = new VectorAssembler().setOutputCol("features").setInputCols(inputColumns)
+
+val trainTaxiFeatClaDF = va.transform(hotTrainTaxiDF).select("features", "trip_duration")
+val testTaxiFeatClaDF = va.transform(hotTestTaxiDF).select("features", "trip_duration")
+
+// Creacion de la columna label
+val indiceClase = new StringIndexer().setInputCol("trip_duration").setOutputCol("label").setStringOrderType("alphabetDesc")
+val trainTaxiFeatLabDF = indiceClase.fit(trainTaxiFeatClaDF).transform(trainTaxiFeatClaDF).drop("trip_duration").persist
+val testTaxiFeatLabDF = indiceClase.fit(testTaxiFeatClaDF).transform(testTaxiFeatClaDF).drop("trip_duration").persist
 
 
 /**** MODELO ****/
-// Calculo de error
-def nErrores(df: DataFrame) : Double = {
-  df.filter(!(col("prediction").contains(col("label")))).count()
-}
-
-def calculoError(df: DataFrame) : Double = {
-  nErrores(df) / df.count()
-}
-
-// Probamos distintos modelos empleando el conjunto de entrenamiento en proporcion 2/3 y 1/3
-def test(df : DataFrame) = {
-  val dfSplits = df.randomSplit(Array(0.66, 0.34), seed=0)
-  val dfS1 = dfSplits(0).persist
-  val dfS2 = dfSplits(1).persist
-
-  def testTree(impureza : String, maxProf : Integer, maxBins : Integer) = {
-    val dtc = new DecisionTreeClassifier()
-    dtc.setImpurity(impureza)
-    dtc.setMaxDepth(maxProf)
-    dtc.setMaxBins(maxBins)
-
-    val dfS1Md = dtc.fit(dfS1)
-    val predictionsAndLabelsDF = dfS1Md.transform(dfS2).select("prediction", "label")
-     
-    val error = calculoError(predictionsAndLabelsDF)
-    printf("testTree(\"%s\", %d, %d) = %f\n", impureza, maxProf, maxBins, error)
-  }
-
-  testTree("gini", 3, 10)
-  testTree("gini", 3, 5)
-  testTree("gini", 4, 5)
-  testTree("gini", 5, 5)
-  testTree("gini", 6, 5)
-  testTree("gini", 7, 5)
-  testTree("gini", 8, 5)
-  testTree("gini", 9, 5)
-  testTree("gini", 9, 32)
-  testTree("gini", 9, 50)
-
-  dfS1.unpersist()
-  dfS2.unpersist()
-}
-
-test(trainTaxiFeatLabDF)
+// TODO: SELECT PARAMS
 
 // Modelo final
-val dtTaxiTrip = new DecisionTreeClassifier()
-dtTaxiTrip.setImpurity("gini")
-dtTaxiTrip.setMaxDepth(9)
-dtTaxiTrip.setMaxBins(5)
+val nbTaxiTrip = new NaiveBayes()
+nbTaxiTrip.setSmoothing(1)
+nbTaxiTrip.setModelType("multinomial")
 
-val trainTaxiFeatLabMd = dtTaxiTrip.fit(trainTaxiFeatLabDF)
+val trainTaxiFeatLabMd = nbTaxiTrip.fit(trainTaxiFeatLabDF)
 val predictionsAndLabelsDF = trainTaxiFeatLabMd.transform(testTaxiFeatLabDF).select("prediction", "label")
 
-var error = calculoError(predictionsAndLabelsDF)
-trainTaxiFeatLabMd.toDebugString
-printf("Tasa de error = %f\n", error)
+// TODO: STATS
+predictionsAndLabelsDF.show()
 
 // Guardado del modelo final
 trainTaxiFeatLabMd.write.overwrite().save(PATH_MODELO + "modelo")

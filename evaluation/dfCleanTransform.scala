@@ -42,8 +42,8 @@ def transformDF(taxiTripDF : DataFrame) : DataFrame = {
   }
 
   // Transformar trip_duration a la clase short/long
-  val medianTripDuration = 663.0  // Fijado al valor que tenia el conjunto de entrenamiento para evitar que la clase generada sea distinta
-  val classTaxiDF = taxiTripDF.withColumn("trip_duration", when($"trip_duration" < medianTripDuration.toInt, "short").otherwise("long"))
+  val shortLongThreshold = 1200
+  val classTaxiDF = taxiTripDF.withColumn("trip_duration", when($"trip_duration" < shortLongThreshold.toInt, "short").otherwise("long"))
 
   // Transformar pickup_datetime y dropoff_datetime a pickup_time, pickup_weekday, dropoff_time y dropoff_weekday, de tipo Double y String
   var timeTaxiDF = convertDates(classTaxiDF, "pickup_datetime")
