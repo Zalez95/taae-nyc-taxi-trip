@@ -1,10 +1,16 @@
 :load common.scala
 
 import org.apache.spark.ml.classification.NaiveBayes
+<<<<<<< Updated upstream
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
+=======
+import org.apache.spark.ml.evaluation
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+import org.apache.spark.ml.evaluation.BinaryClassificationMetrics
+>>>>>>> Stashed changes
 
-var PATH = "./"
+var PATH = "/home/valiant/Documents/taae/data/"
 var PATH_MODELO = "./"
 var FILE = "train.csv"
 
@@ -97,6 +103,7 @@ val predictionsAndLabelsDF = trainTaxiFeatLabMd.transform(testTaxiFeatLabDF).sel
 // Estadisticas del clasificador
 predictionsAndLabelsDF.show()
 
+<<<<<<< Updated upstream
 val predictionsAndLabelsRDD = (predictionsAndLabelsDF
   .select("label", "prediction")
   .rdd.map(r => (r.getAs[Double](0), r.getAs[Double](1)))
@@ -113,6 +120,21 @@ printf("Area bajo curva ROC: %f\n", bcMetrics.areaUnderROC)
 printf("Curva ROC:\n")
 bcMetrics.roc().collect()
 printf("Area bajo curva PR: %f\n", bcMetrics.areaUnderPR)
+=======
+//Evaluación de parámetros
+val bceval = new BinaryClassificationEvaluator().setNumBins(1000).setMetricName("areaUnderROC").setRawPredictionCol("prediction")
+val ML_auROC = bceval.evaluate(predictionsAndLabelsDF) //0.506790
+
+val bceval2 = new BinaryClassificationEvaluator().setNumBins(1000).setMetricName("areaUnderPR").setRawPredictionCol("prediction")
+val ML_auPR = bceval2.evaluate(predictionsAndLabelsDF)//0.206923
+
+val bceval3 = new BinaryClassificationEvaluator().setNumBins(0).setMetricName("areaUnderPR").setRawPredictionCol("prediction")
+val ML_auPRc = bceval3.evaluate(predictionsAndLabelsDF)//0.206923
+
+ML_auROC
+ML_auPR
+ML_auPRc
+>>>>>>> Stashed changes
 
 // Guardado del modelo final
 trainTaxiFeatLabMd.write.overwrite().save(PATH_MODELO + "modelo1")
