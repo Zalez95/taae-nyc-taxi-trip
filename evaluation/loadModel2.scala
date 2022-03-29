@@ -1,6 +1,8 @@
 :load common.scala
 
 import org.apache.spark.ml.classification.RandomForestClassificationModel
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+import org.apache.spark.mllib.evaluation.MulticlassMetrics
 
 var PATH = "./"
 var PATH_MODELO = "./"
@@ -63,8 +65,25 @@ var taxiFeatLabMd = RandomForestClassificationModel.load(PATH_MODELO + "modelo2"
 // Probamos el modelo con los valores actuales
 val predictionsAndLabelsDF = taxiFeatLabMd.transform(taxiFeatLabDF).select("prediction", "label")
 
-// TODO: STATS
+// Estadisticas del clasificador
 predictionsAndLabelsDF.show()
+
+val predictionsAndLabelsRDD = (predictionsAndLabelsDF
+  .select("label", "prediction")
+  .rdd.map(r => (r.getAs[Double](0), r.getAs[Double](1)))
+)
+val bcMetrics = new BinaryClassificationMetrics(predictionsAndLabelsRDD)
+val mcMetrics = new MulticlassMetrics(predictionsAndLabelsRDD)
+
+printf("Tasa de error: %f\n", 1.0 - mcMetrics.accuracy)
+printf("Matrix de confusion:\n")
+mcMetrics.confusionMatrix
+printf("Tasa de ciertos positivos: %f\n", mcMetrics.weightedPrecision)
+printf("Tasa de falsos positivos: %f\n", mcMetrics.weightedFalsePositiveRate)
+printf("Area bajo curva ROC: %f\n", bcMetrics.areaUnderROC)
+printf("Curva ROC:\n")
+bcMetrics.roc().collect()
+printf("Area bajo curva PR: %f\n", bcMetrics.areaUnderPR)
 
 // Limpiar
 taxiFeatLabDF.unpersist()
