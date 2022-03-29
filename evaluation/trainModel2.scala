@@ -1,6 +1,6 @@
 :load common.scala
 
-import org.apache.spark.ml.classification.NaiveBayes
+import org.apache.spark.ml.classification.RandomForestClassifier
 
 var PATH = "./"
 var PATH_MODELO = "./"
@@ -37,22 +37,18 @@ timeTrainTaxiDF = convertDates(timeTrainTaxiDF, "dropoff_datetime")
 var timeTestTaxiDF = convertDates(classTestTaxiDF, "pickup_datetime")
 timeTestTaxiDF = convertDates(timeTestTaxiDF, "dropoff_datetime")
 
-// Longitud y latitud positivas
-val longLatTrainTaxiDF = longLatPositive(timeTrainTaxiDF)
-val longLatTestTaxiDF = longLatPositive(timeTestTaxiDF)
-
 // Atributos categoricos a Double, y eliminacion de id
 var inputColumns = Array("store_and_fwd_flag", "pickup_datetime_weekday", "dropoff_datetime_weekday")
 var outputColumns = inputColumns.map(_ + "_num").toArray
 val siColumns= new StringIndexer().setInputCols(inputColumns).setOutputCols(outputColumns).setStringOrderType("alphabetDesc")
 
-val trainTaxiSimColumns = siColumns.fit(longLatTrainTaxiDF)
-val numericTrainTaxiDF = (trainTaxiSimColumns.transform(longLatTrainTaxiDF)
+val trainTaxiSimColumns = siColumns.fit(timeTrainTaxiDF)
+val numericTrainTaxiDF = (trainTaxiSimColumns.transform(timeTrainTaxiDF)
   .drop(inputColumns:_*)
   .drop("id")
 )
 
-val numericTestTaxiDF = (trainTaxiSimColumns.transform(longLatTestTaxiDF)
+val numericTestTaxiDF = (trainTaxiSimColumns.transform(timeTestTaxiDF)
   .drop(inputColumns:_*)
   .drop("id")
 )
@@ -85,18 +81,25 @@ val testTaxiFeatLabDF = indiceClase.fit(testTaxiFeatClaDF).transform(testTaxiFea
 // TODO: SELECT PARAMS
 
 // Modelo final
-val nbTaxiTrip = new NaiveBayes()
-nbTaxiTrip.setSmoothing(1)
-nbTaxiTrip.setModelType("multinomial")
+val rfTaxiTrip = new RandomForestClassifier()
+  .setFeaturesCol("features")
+  .setLabelCol("label")
+  .setNumTrees(10)
+  .setMaxBins(10)
+  .setMinInstancesPerNode(1)
+  .setMinInfoGain(0.0)
+  .setCacheNodeIds(false)
+  .setCheckpointInterval(10)
 
-val trainTaxiFeatLabMd = nbTaxiTrip.fit(trainTaxiFeatLabDF)
+val trainTaxiFeatLabMd = rfTaxiTrip.fit(trainTaxiFeatLabDF)
 val predictionsAndLabelsDF = trainTaxiFeatLabMd.transform(testTaxiFeatLabDF).select("prediction", "label")
 
 // TODO: STATS
+trainTaxiFeatLabMd.toDebugString
 predictionsAndLabelsDF.show()
 
 // Guardado del modelo final
-trainTaxiFeatLabMd.write.overwrite().save(PATH_MODELO + "modelo1")
+trainTaxiFeatLabMd.write.overwrite().save(PATH_MODELO + "modelo2")
 
 // Limpiar
 testTaxiFeatLabDF.unpersist()

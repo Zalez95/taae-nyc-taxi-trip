@@ -1,6 +1,6 @@
 :load common.scala
 
-import org.apache.spark.ml.classification.NaiveBayesModel
+import org.apache.spark.ml.classification.RandomForestClassificationModel
 
 var PATH = "./"
 var PATH_MODELO = "./"
@@ -25,16 +25,13 @@ val classTaxiDF = cleanTaxiTripDF.withColumn("trip_duration", when($"trip_durati
 var timeTaxiDF = convertDates(classTaxiDF, "pickup_datetime")
 timeTaxiDF = convertDates(timeTaxiDF, "dropoff_datetime")
 
-// Longitud y latitud positivas
-val longLatTaxiDF = longLatPositive(timeTaxiDF)
-
 // Atributos categoricos a Double, y eliminacion de id
 var inputColumns = Array("store_and_fwd_flag", "pickup_datetime_weekday", "dropoff_datetime_weekday")
 var outputColumns = inputColumns.map(_ + "_num").toArray
 val siColumns= new StringIndexer().setInputCols(inputColumns).setOutputCols(outputColumns).setStringOrderType("alphabetDesc")
 
-val taxiSimColumns = siColumns.fit(longLatTaxiDF)
-val numericTaxiDF = (taxiSimColumns.transform(longLatTaxiDF)
+val taxiSimColumns = siColumns.fit(timeTaxiDF)
+val numericTaxiDF = (taxiSimColumns.transform(timeTaxiDF)
   .drop(inputColumns:_*)
   .drop("id")
 )
@@ -61,7 +58,7 @@ val taxiFeatLabDF = indiceClase.fit(taxiFeatClaDF).transform(taxiFeatClaDF).drop
 
 /**** MODELO ****/
 // Cargar el modelo
-var taxiFeatLabMd = NaiveBayesModel.load(PATH_MODELO + "modelo1")
+var taxiFeatLabMd = RandomForestClassificationModel.load(PATH_MODELO + "modelo2")
 
 // Probamos el modelo con los valores actuales
 val predictionsAndLabelsDF = taxiFeatLabMd.transform(taxiFeatLabDF).select("prediction", "label")
