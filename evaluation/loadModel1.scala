@@ -5,7 +5,7 @@ import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
 
 //var PATH = "./"
-var PATH = "./home/valiant/Documents/taae/data"
+var PATH = "./"
 var PATH_MODELO = "./"
 var FILE = "train.csv"
 
@@ -66,17 +66,10 @@ val taxiFeatLabDF = indiceClase.fit(taxiFeatClaDF).transform(taxiFeatClaDF).drop
 // Cargar el modelo
 var taxiFeatLabMd = NaiveBayesModel.load(PATH_MODELO + "modelo1")
 
+
 // Probamos el modelo con los valores actuales
 val predictionsAndLabelsDF = taxiFeatLabMd.transform(taxiFeatLabDF)
 
-//Evaluacion de parametros
-
-val bceval = new BinaryClassificationEvaluator().setNumBins(1000).setMetricName("areaUnderROC").setRawPredictionCol("prediction")
-//val bceval2 = new BinaryClassificationEvaluator().setNumBins(1000).setMetricName("areaUnderPR").setRawPredictionCol("prediction")
-//val bceval3 = new BinaryClassificationEvaluator().setNumBins(0).setMetricName("areaUnderPR").setRawPredictionCol("prediction")
-
-val ML_auROC = bceval.evaluate(predictionsAndLabelsDF) //0.506790
-ML_auROC
 
 // Estadisticas del clasificador
 predictionsAndLabelsDF.show()

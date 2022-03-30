@@ -3,6 +3,8 @@
 import org.apache.spark.ml.classification.RandomForestClassifier
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 
 var PATH = "./"
 var PATH_MODELO = "./"
@@ -80,21 +82,58 @@ val testTaxiFeatLabDF = indiceClase.fit(testTaxiFeatClaDF).transform(testTaxiFea
 
 
 /**** MODELO ****/
-// TODO: SELECT PARAMS
-
-// Modelo final
-val rfTaxiTrip = new RandomForestClassifier()
-  .setFeaturesCol("features")
-  .setLabelCol("label")
-  .setNumTrees(10)
-  .setMaxBins(10)
+// Evaluacion de parametros
+val rfTaxiTripEval = (new RandomForestClassifier()
   .setMinInstancesPerNode(1)
-  .setMinInfoGain(0.0)
   .setCacheNodeIds(false)
   .setCheckpointInterval(10)
+)
+val paramGrid = (new ParamGridBuilder()
+  .addGrid(rfTaxiTripEval.maxBins, Array(5, 10, 32, 50))
+  .addGrid(rfTaxiTripEval.maxDepth, Array(3, 4, 5, 6, 7, 8, 9))
+  .addGrid(rfTaxiTripEval.numTrees, Array(3, 4, 5))
+  .addGrid(rfTaxiTripEval.minInfoGain, Array(0.0, 0.5))
+  .build()
+)
+val bcEval = (new BinaryClassificationEvaluator()
+  .setNumBins(1000)
+  .setMetricName("areaUnderROC")
+  .setRawPredictionCol("probability")
+)
+val cv = (new CrossValidator()
+  .setEstimator(rfTaxiTripEval)
+  .setEvaluator(bcEval)
+  .setNumFolds(3)
+  .setEstimatorParamMaps(paramGrid)
+)
+
+val cvModel = cv.fit(trainTaxiFeatLabDF)
+val rtBestModel = cvModel.bestModel.parent.asInstanceOf[RandomForestClassifier]
+
+val finalMaxBins = rtBestModel.getMaxBins
+val finalMaxDepth = rtBestModel.getMaxDepth
+val finalNumTrees = rtBestModel.getNumTrees
+val finalMinInfoGain = rtBestModel.getMinInfoGain
+printf("Mejor maxBins: %d\n", finalMaxBins)
+printf("Mejor maxDepth %d\n", finalMaxDepth)
+printf("Mejor numTrees: %d\n", finalNumTrees)
+printf("Mejor minInfoGain: %f\n", finalMinInfoGain)
+
+
+// Modelo final
+val rfTaxiTrip = (new RandomForestClassifier()
+  .setNumTrees(finalNumTrees)
+  .setMaxBins(finalMaxBins)
+  .setMaxDepth(finalMaxDepth)
+  .setMinInfoGain(finalMinInfoGain)
+  .setMinInstancesPerNode(1)
+  .setCacheNodeIds(false)
+  .setCheckpointInterval(10)
+)
 
 val trainTaxiFeatLabMd = rfTaxiTrip.fit(trainTaxiFeatLabDF)
 val predictionsAndLabelsDF = trainTaxiFeatLabMd.transform(testTaxiFeatLabDF).select("prediction", "label")
+
 
 // Estadisticas del clasificador
 trainTaxiFeatLabMd.toDebugString

@@ -1,16 +1,12 @@
 :load common.scala
 
 import org.apache.spark.ml.classification.NaiveBayes
-<<<<<<< Updated upstream
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
-=======
-import org.apache.spark.ml.evaluation
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
-import org.apache.spark.ml.evaluation.BinaryClassificationMetrics
->>>>>>> Stashed changes
+import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 
-var PATH = "/home/valiant/Documents/taae/data/"
+var PATH = "./"
 var PATH_MODELO = "./"
 var FILE = "train.csv"
 
@@ -90,20 +86,46 @@ val testTaxiFeatLabDF = indiceClase.fit(testTaxiFeatClaDF).transform(testTaxiFea
 
 
 /**** MODELO ****/
-// TODO: SELECT PARAMS
+// Evaluacion de parametros
+val nbTaxiTripEval = new NaiveBayes()
+val paramGrid = (new ParamGridBuilder()
+  .addGrid(nbTaxiTripEval.modelType, Array("multinomial", "complement"))
+  .addGrid(nbTaxiTripEval.smoothing, Array(1.0, 10.0, 100.0))
+  .build()
+)
+val bcEval = (new BinaryClassificationEvaluator()
+  .setNumBins(1000)
+  .setMetricName("areaUnderROC")
+  .setRawPredictionCol("probability")
+)
+val cv = (new CrossValidator()
+  .setEstimator(nbTaxiTripEval)
+  .setEvaluator(bcEval)
+  .setNumFolds(3)
+  .setEstimatorParamMaps(paramGrid)
+)
+
+val cvModel = cv.fit(trainTaxiFeatLabDF)
+val nbBestModel = cvModel.bestModel.parent.asInstanceOf[NaiveBayes]
+
+val finalModelType = nbBestModel.getModelType
+val finalSmoothing = nbBestModel.getSmoothing
+printf("Mejor modelType: %s\n", finalModelType)
+printf("Mejor smoothing: %f\n", finalSmoothing)
+
 
 // Modelo final
 val nbTaxiTrip = new NaiveBayes()
-nbTaxiTrip.setSmoothing(1)
-nbTaxiTrip.setModelType("multinomial")
+nbTaxiTrip.setModelType(finalModelType)
+nbTaxiTrip.setSmoothing(finalSmoothing)
 
 val trainTaxiFeatLabMd = nbTaxiTrip.fit(trainTaxiFeatLabDF)
 val predictionsAndLabelsDF = trainTaxiFeatLabMd.transform(testTaxiFeatLabDF).select("prediction", "label")
 
+
 // Estadisticas del clasificador
 predictionsAndLabelsDF.show()
 
-<<<<<<< Updated upstream
 val predictionsAndLabelsRDD = (predictionsAndLabelsDF
   .select("label", "prediction")
   .rdd.map(r => (r.getAs[Double](0), r.getAs[Double](1)))
@@ -120,21 +142,6 @@ printf("Area bajo curva ROC: %f\n", bcMetrics.areaUnderROC)
 printf("Curva ROC:\n")
 bcMetrics.roc().collect()
 printf("Area bajo curva PR: %f\n", bcMetrics.areaUnderPR)
-=======
-//Evaluación de parámetros
-val bceval = new BinaryClassificationEvaluator().setNumBins(1000).setMetricName("areaUnderROC").setRawPredictionCol("prediction")
-val ML_auROC = bceval.evaluate(predictionsAndLabelsDF) //0.506790
-
-val bceval2 = new BinaryClassificationEvaluator().setNumBins(1000).setMetricName("areaUnderPR").setRawPredictionCol("prediction")
-val ML_auPR = bceval2.evaluate(predictionsAndLabelsDF)//0.206923
-
-val bceval3 = new BinaryClassificationEvaluator().setNumBins(0).setMetricName("areaUnderPR").setRawPredictionCol("prediction")
-val ML_auPRc = bceval3.evaluate(predictionsAndLabelsDF)//0.206923
-
-ML_auROC
-ML_auPR
-ML_auPRc
->>>>>>> Stashed changes
 
 // Guardado del modelo final
 trainTaxiFeatLabMd.write.overwrite().save(PATH_MODELO + "modelo1")
