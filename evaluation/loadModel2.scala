@@ -5,7 +5,7 @@ import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
 
 var PATH = "./"
-var PATH_MODELO = "./"
+var PATH_MODELO = "./modelo"
 var FILE = "train.csv"
 
 
@@ -60,7 +60,7 @@ val taxiFeatLabDF = indiceClase.fit(taxiFeatClaDF).transform(taxiFeatClaDF).drop
 
 /**** MODELO ****/
 // Cargar el modelo
-var taxiFeatLabMd = RandomForestClassificationModel.load(PATH_MODELO + "modelo2")
+var taxiFeatLabMd = RandomForestClassificationModel.load(PATH_MODELO)
 
 // Probamos el modelo con los valores actuales
 val predictionsAndLabelsDF = taxiFeatLabMd.transform(taxiFeatLabDF).select("prediction", "label")
