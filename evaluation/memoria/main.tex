@@ -1,0 +1,293 @@
+\documentclass[12pt]{article}
+\usepackage[spanish]{babel}
+\usepackage[utf8]{inputenc}
+
+% Extras
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{float}  % H
+\usepackage{amsmath}
+
+% Imágenes
+\usepackage{graphicx}
+\graphicspath{{images/}}
+
+% Cambio de la fuente de las secciones
+\usepackage{setspace}
+\usepackage{sectsty}
+\allsectionsfont{\normalfont\scshape}
+
+% Configuración página
+\usepackage{vmargin}
+\setmarginsrb{3 cm}{2.5 cm}{3 cm}{2.5 cm}{1 cm}{1.5 cm}{1 cm}{1.5 cm}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\lhead{}
+\cfoot{\thepage}
+
+% Configuración portada
+\title{Proyecto de Clasificación: Creación, selección y evaluación de modelos}			                    % Título
+\author{Daniel González Alonso\\		% Autor
+        Joshua Miguel González Santana\\
+		Javier Estefanía González}
+\date{\today}							% Fecha
+
+\makeatletter
+\let\thetitle\@title
+\let\theauthor\@author
+\let\thedate\@date
+\makeatother
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+
+%%%%%%%%%% PORTADA %%%%%%%%%%
+\begin{titlepage}
+	\centering
+    \vspace*{0.25 cm}
+	
+	\doublespacing
+	\textsc{\LARGE Máster Universitario en Inteligencia de Negocio y Big Data en Entornos Seguros}\\[0.5 cm]
+	\singlespacing
+	\textsc{\large Técnicas de Aprendizaje Automático Escalables}\\[0.5 cm]
+	
+	\rule{\linewidth}{0.2 mm}\\[0.4 cm]
+	\textsc{\huge \bf \thetitle}\\
+	\rule{\linewidth}{0.2 mm}\\[2.5 cm]
+	
+	\begin{minipage}{0.6\textwidth}
+		\begin{flushleft} \large
+			\emph{Autores:}\\
+			\begin{itemize}
+            	\item[] \theauthor
+            \end{itemize}
+		\end{flushleft}
+	\end{minipage}~
+	\begin{minipage}{0.3\textwidth}
+		\begin{flushright} \large
+		\end{flushright}
+	\end{minipage}\\[6 cm]
+	{\large \thedate}\\[2 cm]
+
+	\vfill	
+\end{titlepage}
+
+%%%%%%%%%% INDICE %%%%%%%%%%
+\tableofcontents
+\pagebreak
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Introducción %%%%
+\section{Introducción}
+Este documento es el tercero y último de una serie de entregables que forman parte del \textbf{Proyecto de clasificación} de la asignatura Técnicas de Aprendizaje Automático Escalables, que consistirá, en último término y de acuerdo con el enunciado, en comparar el rendimiento de varios clasificadores de la biblioteca de Spark ML.\\
+
+En este tercer entregable se va a trabajar sobre el conjunto de datos \textit{NYC Taxi Trip Duration} \cite{kaggle} que se describía en las partes anteriores. Esta entrega se divide en varias secciones, primeramente se va a llevar a cabo una división del conjunto de datos en dos subconjuntos, uno de entrenamiento y otro de prueba. Posteriormente, se describirá la fase de limpieza de datos. Después se tratarán las transformaciones necesarias llevadas a cabo sobre el conjunto de datos. Finalmente, se llevarán a cabo dos modelos, el primero de ellos, un clasificador básico y el segundo, un clasificador avanzado. Finalmente, de cada modelo creado, se evaluará su comportamiento utilizando diferente métricas.\\
+
+%%%% Conjuntos de entrenamiento y prueba %%%%
+\section{Conjuntos de Entrenamiento y Prueba}\label{cap2}
+
+[Esta sección se conserva de la entrega anterior.]\\
+
+Para poder entrenar y probar el modelo es necesario separar el conjunto de datos inicial, almacenado en el fichero \texttt{train.csv}, en dos subconjuntos de datos:
+
+\begin{itemize}
+    \item Conjunto de entrenamiento \textit{train}, empleado para crear el modelo.
+    \item Conjunto de prueba \textit{test}, empleado para probar el modelo.
+\end{itemize}
+
+Ambos conjuntos de datos serán sometidos al mismo pre-procesamiento, pero por separado, para evitar que se haga un uso indebido del conjunto de datos de prueba.\\
+
+La separación del conjunto de datos original ha sido llevada a cabo en proporción $2/3$ para el conjunto de entrenamiento y $1/3$ para el conjunto de prueba, con los datos escogidos aleatoriamente empleando la función \texttt{randomSplit} de la librería ML de Scala.\\
+
+\newpage
+
+%%%% Limpieza de datos %%%%
+\section{Limpieza de Datos}\label{cap3}
+
+[Esta sección se conserva de la entrega anterior.]
+
+En el conjunto de datos original, con un total de 1458644 registros, no existía ninguno con valores nulos, así que no se ha encontrado ningún atributo que haya tenido que ser reemplazado o registro que haya sido descartado.\\
+
+Lo que si se ha hecho ha sido limpiar valores atípicos. Durante la exploración de los datos se observó que hubo dos fechas que convenía tratar, por un lado el 1 de Julio de 2016, ya que al tratarse del último día del conjunto de datos, el número de ejemplos era muy pequeño, y el día 23 de Enero de 2016, ya que ese día hubo también muy pocos tránsitos debido a un temporal de nieve que bloqueó la ciudad. Se ha decidido eliminar los tránsitos de ambos días para evitar que estos outliers afecten al modelo.\\
+
+Esta limpieza se ha aplicado por separado tanto al conjunto de entrenamiento como al de prueba. El número total de instancias eliminadas del conjunto de prueba debido a valores nulos (NTAIE) ha sido de 0, mientras que el número de instancias eliminadas por ser valores atípicos (NTOE) ha sido de 632. Esto nos da una tasa de no clasificados de:\\
+
+\begin{equation}
+    \textnormal{TNC} = \frac{\text{NTAIE} + \text{NTOE}}{\textnormal{tamaño conjunto de pruebas}} = \frac{0 + 632}{1458644} = 0.001274128
+    \label{eq:tasa-no-clasificados}
+\end{equation}
+
+%%%% Transformación de datos %%%%
+\section{Transformación de Datos}
+En esta sección se describen las transformaciones realizadas sobre los atributos para poder obtener posteriormente los diferentes modelos.\\
+
+\subsection{Transformación de Atributos para los Modelos}
+
+Las transformaciones llevadas a cabo han sido las siguientes:
+
+\begin{itemize}
+    \item Cómo se describía en la entrega anterior, el atributo \texttt{store\_and\_fwd\_flag} es una bandera que puede tomar dos valores (binario), \textit{Y} o \textit{N}, es decir, se tarta de un valor categórico, pero cuyos valores no tienen ningún orden. Por ello, para transformar el valor a tipo \texttt{Double} se ha decidido emplear, primero una transformación de String a índice de clase empleando \texttt{StringIndexer} con el orden alfabético como índice, y después, la codificación 1 de k con el \texttt{OneHotEncoderEstimator}.
+    \item Se ha definido la función \texttt{convertDates} con el fin de transformar los atributos que estaban almacenados como \texttt{DateTime} en formato \texttt{YYYY-MM-DD hh:mm:ss} (atributos \texttt{pickup\_datetime y dropoff\_datetime}) a diferentes columnas en las que se almacenan por separado el día de la semana con el que se corresponde el trayecto. Así como las horas, minutos y segundos (de inicio y fin de trayecto) en tipo \texttt{Double}. Los días de la semana, al tratarse de un valor categórico se han codificado empleando el StringIndexer con el número de la semana, y después se ha aplicado el \texttt{OneHotEncoderEstimator}. Se ha decidido no capturar por separado los días del mes, ni el mes en si, ya que el periodo en el que se capturaron los datos tan solo abarca los días entre Enero y Julio, por lo que no se detectarían cambios en el modelo debido a la estacionalidad.
+    \item Se ha transformado la columna \texttt{trip\_duration}, la cual en el archivo de origen era de tipo numérico continuo (\texttt{Double}), mientras que ahora es un valor categórico binario, con las clases \texttt{short} y \texttt{long}. \textbf{[Cambio respecto de la entrega anterior]} Estas clases se han asignado de acuerdo a la definición propuesta por el enunciado. Si el valor del trayecto es superior a 1200 segundos, se ha sustituido por \texttt{long}, y si por el contrario, la duración ha sido inferior a 1200 segundos, tomará el valor \texttt{short}.
+    \item Dado que para generar el Modelo 1: NB, es necesario tener valores positivos, se han realizado transformaciones sobre las columnas \texttt{pickup\_latitude, pickup\_longitude, dropoff\_latitude, dropoff\_longitude}. A los datos de longitud, se les ha sumado 180 grados y a los de latitud, 90 grados. Esta transformación, aunque simple, es efectiva incluso en el caso de probar un modelo con coordenadas que no estén contenidas en el área de NY, ya que la transformación se aplicaría a todas las coordenadas por igual, sin producir impactos sobre el posicionamiento. \textbf{Nota:} Esta transformación se ha realizado únicamente para el modelo Naive Bayes y no para el modelo Random Forest.
+\end{itemize}
+
+Todas estas transformaciones se han realizado por separado sobre los conjuntos de entrenamiento y prueba para que tengan el mismo formato. Pero las transformaciones que han necesitado de un estimador, como el \textit{OneHotEncoder} sólo se han ajustado (\textit{fit}) sobre el conjunto de entrenamiento, y después se han aplicado también al conjunto de prueba.
+
+\subsection{Transformación para obtener Features y Labels}
+
+[Esta sección se conserva de la entrega anterior.]\\
+
+Por último, durante la fase de transformación se han obtenidos dos columnas, una llamada \textit{features} con el vector de características de entrada para los modelos de Scala ML, y otra llamada \textit{labels} con la columna de la etiqueta de clase.
+
+\begin{itemize}
+    \item Para obtener \textit{features} se han empleado todas las columnas a excepción de \texttt{trip\_duration}, y se las ha aplicado el \textit{transformer} \texttt{VectorAssembler} directamente, ya que llegados aquí todas estas columnas ya están con tipos \texttt{Double} o \texttt{Vector}.
+    \item Para obtener la columna \textit{label} se ha empleado la columna \texttt{trip\_duration}, que será nuestra clase. A esta columna, ahora en almacenada como \texttt{String}, ha habido que transformarla a tipo \texttt{Double} empleando \texttt{StringIndexer}.
+\end{itemize}
+
+Al igual que las transformaciones del apartado anterior, estas se han realizado por separado sobre los conjuntos de entrenamiento y prueba.\\
+
+%%%% Creación y selección de Modelos %%%%
+\section{Creación y selección de Modelos}
+En este entregable se han creado dos modelos finales: el primero empleando un clasificador básico Naive Bayes, y el segundo empleando un clasificador avanzado Random Forest. Ambos se explicarán a lo largo de este apartado:
+
+\subsection{Modelo 1: Naive Bayes}
+El primero de los modelos ha sido un clasificador básico Naive Bayes \cite{naive_bayes}. Este modelo 1 se ha generado empleando el script \texttt{trainModel1.scala}, el cual se encarga de llevar a cabo la división del conjunto de datos en entrenamiento y prueba, la limpieza y transformación de estos conjuntos, la selección de los mejores parámetros, la generación del modelo final y su posterior evaluación con el conjunto de prueba. Además, este script guarda el modelo finalmente generado en la carpeta \texttt{modelo1}. Este modelo puede ser reutilizado mediante el script \texttt{loadModel1.scala} para probarlo con otro conjunto de datos y sacar métricas de comportamiento.\\
+
+La elección de los parámetros del modelo se ha llevado a cabo de forma automatizada empleando la clase \texttt{CrossValidator} y el conjunto de datos de entrenamiento. Esta clase \texttt{CrossValidator} se encarga de probar el clasificador Naive Bayes con distintos parámetros empleando validación cruzada, y de seleccionar el mejor de ellos de acuerdo a algún tipo de métrica. En nuestro caso se ha decidido realizar validación cruzada de 3 iteraciones. Durante el proceso de validación los datos de muestra se dividen en K subconjuntos. Uno de los subconjuntos se utiliza como datos de prueba y el resto como datos de entrenamiento. El proceso se repite, en este caso 3 veces, con cada uno de los subconjuntos de datos de prueba. Aunque lo más común es realizar 10 iteraciones, en este caso particular hemos realizado 3 para que no tardase demasiado tiempo.\\
+
+La métrica empleada para seleccionar el mejor modelo ha sido el área bajo la curva ROC. Para su cálculo se ha decidido emplear la clase \texttt{BinaryClassificationEvaluator} configurada con 1000 bins y con la probabilidad como \textit{rawPredictionCol}.\\
+
+Los parámetros a probar con la clase \texttt{CrossValidator} se han guardado en un objeto \texttt{ParamGrid}, éstos han sido los siguientes:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{0.2\textwidth}|p{0.4\textwidth}|}
+        \hline Parámetro & Valores \\ \hline
+        \texttt{modelType} & ``multinomial'', ``complement'' \\ \hline
+        \texttt{smoothing} & 1.0, 10.0, 100.0 \\ \hline
+    \end{tabular}
+    \caption{Parámetros probados con el modelo 1}
+    \label{tab:cross_m1}
+\end{table}
+
+Los parámetros que el \textit{CrossValidator} ha seleccionado como los mejores han sido los siguientes:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{0.2\textwidth}|p{0.4\textwidth}|}
+        \hline Parámetro & Valor \\ \hline
+        \texttt{modelType} & ``multinomial'' \\ \hline
+        \texttt{smoothing} & 100.0 \\ \hline
+    \end{tabular}
+    \caption{Parámetros finales del modelo 1}
+    \label{tab:final_m1}
+\end{table}
+
+\subsection{Modelo 2: Random Forest}
+El segundo modelo final se trata de un clasificador avanzado Random Forest \cite{random_forest_classifier}. Este modelo 2 se ha generado empleando el script \texttt{trainModel2.scala}, el cual se encarga de llevar a cabo la división del conjunto de datos en entrenamiento y prueba, la limpieza y transformación de estos conjuntos, la selección de los mejores parámetros, la generación del modelo final y su evaluación con el conjunto de prueba. Además este script guarda el modelo finalmente generado en la carpeta \texttt{modelo2}. Este modelo puede ser reutilizado mediante el script \texttt{loadModel2.scala} para probarlo con otro conjunto de datos y sacar métricas de comportamiento.\\
+
+Al igual que con el primer modelo, la selección de los parámetros del modelo se ha llevado a cabo de forma automatizada empleando la clase \texttt{CrossValidator} y el conjunto de datos de entrenamiento. Los parámetros empleados con esta clase han sido los mismos, validación cruzada de 3 iteraciones y área bajo la curva ROC con 1000 bins empleando la probabilidad como \textit{rawPredictionCol}.\\
+
+Los parámetros a probar con la clase \texttt{CrossValidator} se han guardado en un objeto \texttt{ParamGrid}, éstos han sido los siguientes:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{0.2\textwidth}|p{0.4\textwidth}|}
+        \hline Parámetro & Valores \\ \hline
+        \texttt{maxBins} & 5, 10, 32, 50 \\ \hline
+        \texttt{maxDepth} & 3, 4, 5, 6, 7, 8, 9 \\ \hline
+        \texttt{numTrees} & 3, 4, 5 \\ \hline
+        \texttt{minInfoGain} & 0.0, 0.5 \\ \hline
+    \end{tabular}
+    \caption{Parámetros probados con el modelo 2}
+    \label{tab:cross_m2}
+\end{table}
+
+Los parámetros que el \textit{CrossValidator} ha seleccionado como los mejores han sido los siguientes:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{0.2\textwidth}|p{0.4\textwidth}|}
+        \hline Parámetro & Valor \\ \hline
+        \texttt{maxBins} & 10 \\ \hline
+        \texttt{maxDepth} & 9 \\ \hline
+        \texttt{numTrees} & 5 \\ \hline
+        \texttt{minInfoGain} & 0.0 \\ \hline
+    \end{tabular}
+    \caption{Parámetros finales del modelo 2}
+    \label{tab:final_m2}
+\end{table}
+
+%%%% Evaluación de Modelos Finales%%%%
+\section{Evaluación de modelos finales}
+Para la evaluación de los modelos finalmente obtenidos se ha empleado el conjunto de prueba \textit{test}, y se ha empleado las bibliotecas MLlib y ML para el cálculo de diferentes métricas. Al tratarse de un problema de clasificación binaria, se ha empleado la clase \texttt{BinaryClassificationMetrics} para obtener la mayoría de las métricas, aunque para algunas de ellas como la tasa de ciertos positivos o la tasa de falsos positivos ha sido necesario emplear la clase \texttt{MulticlassMetrics}. Los resultados obtenidos por ambos clasificadores se muestran a continuación:
+
+\subsection{Modelo 1: Naive Bayes}
+\begin{table}[H]
+\centering
+\begin{tabular}{|p{0.3\textwidth}|p{0.7\textwidth}|}
+\hline
+Tasa de Error             & 0.454335                                                                                \\ \hline
+Matriz de confusión       & \begin{tabular}[c]{@{}c@{}}[219989.0,  50058.0\\ 175017.0,    50330.0]\end{tabular} \\ \hline
+Tasa de ciertos positivos & 0.531647                                                                                \\ \hline
+Tasa de falsos positivos  & 0.507688                                                                                \\ \hline
+Área Bajo la Curva ROC    & 0.518988                                                                                \\ \hline
+Curva ROC                 & [(0.0,0.0), (0.185367732,0.223344442), (1.0,1.0), (1.0,1.0)]         \\ \hline
+Área Bajo la Curva PR     & 0.483309                                                                                \\ \hline
+\end{tabular}
+\caption{Métricas obtenidas del modelo 1 Naive Bayes}
+\end{table}
+
+\subsection{Modelo 2: Random Forests}
+\begin{table}[H]
+\centering
+\begin{tabular}{|p{0.3\textwidth}|p{0.7\textwidth}|}
+\hline
+Tasa de Error             & 0.138809                                                                                \\ \hline
+Matriz de confusión       & \begin{tabular}[c]{@{}c@{}}[384911.0,  58670.0\\  10095.0,    41718.0]\end{tabular} \\ \hline
+Tasa de ciertos positivos & 0.915991                                                                                \\ \hline
+Tasa de falsos positivos  & 0.188291                                                                                \\ \hline
+Área Bajo la Curva ROC    & 0.836450                                                                                \\ \hline
+Curva ROC                 & [(0.0,0.0), (0.132264456,0.805164727), (1.0,1.0), (1.0,1.0)]         \\ \hline
+Área Bajo la Curva PR     & 0.385273                                                                                \\ \hline
+\end{tabular}
+\caption{Métricas obtenidas del modelo 2 Random Forests}
+\end{table}
+
+%%%% Esfuerzo %%%%
+\section{Esfuerzo}
+
+La distribución del esfuerzo realizado en el análisis, compresión, redacción y coordinación de este documento ha sido la siguiente:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|c|c|c|}
+\hline
+Alumno         & Esfuerzo (Hr)    & Tanto por ciento  \\ \hline
+\textit{Daniel Gonzalez Alonso}  &   12   & $33.3\%$      \\ \hline
+\textit{Joshua M. González Santana}  & 12  & $33.3\%$      \\ \hline
+\textit{Javier Estefanía González}  & 12  & $33.3\%$      \\ \hline
+\end{tabular}
+\caption{Carga de trabajo de los alumnos}
+\end{table}
+
+%%%% REFERENCIAS %%%%%
+\section{Bibliografía}
+\begin{thebibliography}{0}
+	\bibitem{kaggle}
+      Kaggle,
+      \emph{New York City Taxi Trip Duration},
+      \url{https://www.kaggle.com/c/nyc-taxi-trip-duration/code}
+	\bibitem{naive_bayes}
+      Apache Spark,
+      \emph{NaiveBayes},
+      \url{https://spark.apache.org/docs/latest/api/java/org/apache/spark/ml/classification/NaiveBayes.html}
+	\bibitem{random_forest_classifier}
+      Apache Spark,
+      \emph{RandomForestClassifier},
+      \url{https://spark.apache.org/docs/latest/api/java/index.html?org/apache/spark/ml/classification/RandomForestClassifier.html}
+\end{thebibliography}
+
+\end{document}
